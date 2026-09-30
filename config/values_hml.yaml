@@ -1,0 +1,68 @@
+
+# ===============================================================================
+# HELM VALUES - AMBIENTE DE HOMOLOGAÇÃO (HML)
+# Aplicação : apisix-gateway-manager
+# Versão    : 1.0.0
+# ===============================================================================
+
+appFramework: python
+
+namespace: corp-midd
+namespaceocp: corp-midd
+containerPort: 8080
+
+# Auto Scaler (HPA)
+hpa:
+  enabled: true
+  enableMemory: false
+  enableCpu: true
+  minReplicas: 1
+  maxReplicas: 3
+  targetMemoryUtilizationPercentage: 85
+  targetCpuUtilizationPercentage: 85
+
+# Limites de Recursos da Pod
+resources:
+  cpu: 200m
+  memory: 500Mi
+
+# Roteamento e Ingress
+ingress:
+  enabled: true
+  contextURL: /apisix-gateway-manager
+  host: ""
+
+env:
+  - name: GUNICORN_CMD_ARGS
+    value: "--worker-tmp-dir /tmp --bind 0.0.0.0:8080"
+  - name: TMPDIR
+    value: "/tmp"
+  - name: HOME
+    value: "/tmp"
+
+# Configurações do Deployment no Kubernetes (ConfigMap)
+configmap:
+  LOGGER_LEVEL: "INFO"
+  FLASK_ENV: "production"
+  FLASK_APP: "apisix-gateway-manager"
+  FLASK_HOST: "0.0.0.0"
+  FLASK_PORT: "8080"
+  REQUESTS_CA_BUNDLE: "api/certificates/corp-ca.pem"
+
+  # APISIX Gateway
+  APISIX_DEFAULT_ADMIN_URL: "http://apisix-admin.corp-midd.svc:9180"
+  APISIX_DEFAULT_INSTANCE_NAME: "APISIX HML"
+  APISIX_ENVIRONMENTS: "DEV,HML"
+
+  # OIDC / SSO (Azure AD)
+  OIDC_CLIENT_ID: "INT-MIDD-APISIX-MANAGER-HML"
+  OIDC_ISSUER_URL: "https://login.microsoftonline.com/{TENANT_ID}/v2.0"
+  DATABASE_NAME: "database.db"
+
+# Integração com Cofre de Senhas Porto Tech Store (Vault)
+enable_secrets: true
+secrets:
+  FLASK_VAULT: "acaea691-1f9c-4ecf-805a-767c121bb09f"
+  OIDC_CLIENT_SECRET: "uuid-do-segredo-no-vault"
+  APISIX_DEFAULT_ADMIN_KEY: "uuid-do-segredo-no-vault"
+  GIT_ID_VAULT: "dae67a20-5f1c-4e03-9a70-d43faf3566a6"

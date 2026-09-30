@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="APISIX Gateway Management Platform — Administração centralizada de APIs">
+    <title>{% block title %}APISIX Gateway Manager{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo-container">
+                <span class="material-icons-round logo-icon">hub</span>
+                <div class="logo-text">
+                    <span class="logo-title">APISIX</span>
+                    <span class="logo-subtitle">Gateway Manager</span>
+                </div>
+            </div>
+            <button class="sidebar-toggle" id="sidebarToggle" title="Recolher menu">
+                <span class="material-icons-round">menu_open</span>
+            </button>
+        </div>
+
+        <nav class="sidebar-nav">
+            <div class="nav-section">
+                <span class="nav-section-title">Principal</span>
+                <a href="{{ url_for('dash.dashboard') }}" class="nav-item {% if request.endpoint == 'dash.dashboard' %}active{% endif %}">
+                    <span class="material-icons-round">dashboard</span>
+                    <span class="nav-label">Dashboard</span>
+                </a>
+                <a href="{{ url_for('gateways.listar') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('gateways.') %}active{% endif %}">
+                    <span class="material-icons-round">dns</span>
+                    <span class="nav-label">Gateways</span>
+                </a>
+            </div>
+
+            <div class="nav-section">
+                <span class="nav-section-title">Administração de APIs</span>
+                <a href="{{ url_for('api_admin.index', tab='routes') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('api_admin.') and request.args.get('tab','routes') == 'routes' %}active{% endif %}">
+                    <span class="material-icons-round">alt_route</span>
+                    <span class="nav-label">Routes</span>
+                </a>
+                <a href="{{ url_for('api_admin.index', tab='services') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('api_admin.') and request.args.get('tab') == 'services' %}active{% endif %}">
+                    <span class="material-icons-round">miscellaneous_services</span>
+                    <span class="nav-label">Services</span>
+                </a>
+                <a href="{{ url_for('api_admin.index', tab='upstreams') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('api_admin.') and request.args.get('tab') == 'upstreams' %}active{% endif %}">
+                    <span class="material-icons-round">cloud_upload</span>
+                    <span class="nav-label">Upstreams</span>
+                </a>
+                <a href="{{ url_for('api_admin.index', tab='plugins') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('api_admin.') and request.args.get('tab') == 'plugins' %}active{% endif %}">
+                    <span class="material-icons-round">extension</span>
+                    <span class="nav-label">Plugins</span>
+                </a>
+            </div>
+
+            <div class="nav-section">
+                <span class="nav-section-title">Segurança</span>
+                <a href="{{ url_for('consumers.index') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('consumers.') %}active{% endif %}">
+                    <span class="material-icons-round">people</span>
+                    <span class="nav-label">Consumers</span>
+                </a>
+                <a href="{{ url_for('ssl.index') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('ssl.') %}active{% endif %}">
+                    <span class="material-icons-round">verified_user</span>
+                    <span class="nav-label">SSL / TLS</span>
+                </a>
+            </div>
+
+            <div class="nav-section">
+                <span class="nav-section-title">Sistema</span>
+                <a href="{{ url_for('dash.audit_log') }}" class="nav-item {% if request.endpoint == 'dash.audit_log' %}active{% endif %}">
+                    <span class="material-icons-round">history</span>
+                    <span class="nav-label">Auditoria</span>
+                </a>
+            </div>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <div class="user-avatar">
+                    {{ (session.get('user', {}).get('name', 'U')[:1])|upper }}
+                </div>
+                <div class="user-details">
+                    <span class="user-name">{{ session.get('user', {}).get('name', 'Usuário') }}</span>
+                    <span class="user-role">{{ session.get('user_role', 'Operador') }}</span>
+                </div>
+            </div>
+            <a href="{{ url_for('auth.logout') }}" class="nav-item logout-item" title="Sair">
+                <span class="material-icons-round">logout</span>
+                <span class="nav-label">Sair</span>
+            </a>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content" id="mainContent">
+        <!-- Top Bar -->
+        <header class="topbar">
+            <div class="topbar-left">
+                <button class="mobile-menu-btn" id="mobileMenuBtn">
+                    <span class="material-icons-round">menu</span>
+                </button>
+                <div class="breadcrumb">
+                    {% block breadcrumb %}
+                    <span class="breadcrumb-item">Dashboard</span>
+                    {% endblock %}
+                </div>
+            </div>
+            <div class="topbar-right">
+                {% block topbar_actions %}{% endblock %}
+            </div>
+        </header>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-container">
+            {% for category, message in messages %}
+            <div class="flash-message flash-{{ category }}" onclick="this.remove()">
+                <span class="material-icons-round">
+                    {% if category == 'success' %}check_circle{% elif category == 'error' %}error{% else %}info{% endif %}
+                </span>
+                <span>{{ message }}</span>
+                <span class="material-icons-round flash-close">close</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        <!-- Page Content -->
+        <div class="page-content">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Modal Backdrop -->
+    <div class="modal-backdrop" id="modalBackdrop" onclick="closeModal()"></div>
+
+    <!-- Generic Modal -->
+    <div class="modal" id="genericModal">
+        <div class="modal-header">
+            <h3 id="modalTitle">Modal</h3>
+            <button class="modal-close" onclick="closeModal()">
+                <span class="material-icons-round">close</span>
+            </button>
+        </div>
+        <div class="modal-body" id="modalBody"></div>
+        <div class="modal-footer" id="modalFooter"></div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}SSL / TLS — APISIX Gateway Manager{% endblock %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-item">Segurança</span>
+<span class="breadcrumb-sep">/</span>
+<span class="breadcrumb-item active">SSL / TLS</span>
+{% endblock %}
+
+{% block content %}
+<div class="selector-bar">
+    <form method="GET" action="{{ url_for('ssl.index') }}" class="selector-form">
+        <div class="form-group-inline">
+            <label><span class="material-icons-round">dns</span> Gateway:</label>
+            <select name="gateway_id" class="form-select" onchange="this.form.submit()">
+                <option value="">— Selecione um gateway —</option>
+                {% for gw in gateways %}
+                <option value="{{ gw.id }}" {{ 'selected' if selected_gw and selected_gw.id == gw.id else '' }}>
+                    {{ gw.name }} ({{ gw.environment }})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
+</div>
+
+{% if error_msg %}
+<div class="alert alert-error">
+    <span class="material-icons-round">error</span> {{ error_msg }}
+</div>
+{% endif %}
+
+{% if selected_gw %}
+<div class="section-header">
+    <h2><span class="material-icons-round">verified_user</span> Certificados SSL / TLS</h2>
+    <button class="btn btn-primary btn-sm" onclick="openSslModal()">
+        <span class="material-icons-round">add</span> Novo Certificado
+    </button>
+</div>
+
+{% if ssl_certs %}
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr><th>ID</th><th>SNIs</th><th>Validade</th><th>Ações</th></tr>
+        </thead>
+        <tbody>
+            {% for ssl in ssl_certs %}
+            <tr>
+                <td><code class="resource-id">{{ ssl.id or 'N/A' }}</code></td>
+                <td>
+                    {% if ssl.snis %}
+                        {% for sni in ssl.snis %}<code>{{ sni }}</code> {% endfor %}
+                    {% else %}-{% endif %}
+                </td>
+                <td>{{ ssl.validity_end or '-' }}</td>
+                <td>
+                    <button class="btn-icon btn-icon-danger" onclick="deleteSsl('{{ ssl.id }}')" title="Excluir">
+                        <span class="material-icons-round">delete</span>
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state-sm">
+    <span class="material-icons-round">verified_user</span>
+    <p>Nenhum certificado SSL encontrado neste gateway.</p>
+</div>
+{% endif %}
+{% else %}
+<div class="empty-state">
+    <span class="material-icons-round">verified_user</span>
+    <h3>Selecione um Gateway</h3>
+    <p>Escolha uma instância acima para gerenciar certificados SSL.</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const GW_ID = {{ selected_gw.id if selected_gw else 'null' }};
+
+function openSslModal() {
+    const html = `
+        <div class="form-group">
+            <label>Configuração JSON *</label>
+            <textarea id="sslJson" class="form-textarea code-input" rows="12" placeholder='{\n  "id": "my-ssl-1",\n  "cert": "-----BEGIN CERTIFICATE-----\\n...\\n-----END CERTIFICATE-----",\n  "key": "-----BEGIN RSA PRIVATE KEY-----\\n...\\n-----END RSA PRIVATE KEY-----",\n  "snis": ["example.com", "*.example.com"]\n}'></textarea>
+        </div>
+        <div class="form-actions">
+            <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+            <button class="btn btn-primary" onclick="submitSsl()">
+                <span class="material-icons-round">save</span> Criar Certificado
+            </button>
+        </div>
+    `;
+    openModal('Novo Certificado SSL', html);
+}
+
+function submitSsl() {
+    let config;
+    try { config = JSON.parse(document.getElementById('sslJson').value); }
+    catch(e) { showToast('error', 'JSON inválido'); return; }
+
+    fetch(`/ssl/create/${GW_ID}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config)
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) { showToast('success', 'Certificado criado!'); closeModal(); setTimeout(() => location.reload(), 1000); }
+        else { showToast('error', data.error || 'Erro'); }
+    });
+}
+
+function deleteSsl(id) {
+    if (!confirm(`Excluir certificado "${id}"?`)) return;
+    fetch(`/ssl/delete/${GW_ID}/${id}`, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) { showToast('success', 'Removido!'); setTimeout(() => location.reload(), 1000); }
+            else { showToast('error', data.error || 'Erro'); }
+        });
+}
+</script>
+{% endblock %}

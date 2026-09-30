@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Auditoria — APISIX Gateway Manager{% endblock %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-item">Sistema</span>
+<span class="breadcrumb-sep">/</span>
+<span class="breadcrumb-item active">Auditoria</span>
+{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <h2><span class="material-icons-round">history</span> Log de Auditoria</h2>
+    <span class="badge-count">{{ registros|length }} registros</span>
+</div>
+
+<!-- Filtros -->
+<div class="filter-bar">
+    <form method="GET" action="{{ url_for('dash.audit_log') }}" class="filter-form">
+        <select name="gateway_id" class="form-select form-select-sm">
+            <option value="">Todos os gateways</option>
+            {% for gw in gateways %}
+            <option value="{{ gw.id }}" {{ 'selected' if filtro_gateway == gw.id else '' }}>{{ gw.name }}</option>
+            {% endfor %}
+        </select>
+        <select name="tipo" class="form-select form-select-sm">
+            <option value="">Todos os tipos</option>
+            {% for tipo in ['route', 'service', 'upstream', 'consumer', 'ssl', 'gateway', 'idp_binding'] %}
+            <option value="{{ tipo }}" {{ 'selected' if filtro_tipo == tipo else '' }}>{{ tipo }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-ghost btn-sm">
+            <span class="material-icons-round">filter_list</span> Filtrar
+        </button>
+    </form>
+</div>
+
+{% if registros %}
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Data/Hora</th>
+                <th>Usuário</th>
+                <th>Ação</th>
+                <th>Tipo</th>
+                <th>Recurso</th>
+                <th>Gateway</th>
+                <th>Descrição</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in registros %}
+            <tr>
+                <td><span class="timestamp">{{ r.timestamp[:19] if r.timestamp else 'N/A' }}</span></td>
+                <td>{{ r.usuario_email or 'Sistema' }}</td>
+                <td><span class="action-badge">{{ r.acao or 'N/A' }}</span></td>
+                <td><span class="type-badge">{{ r.recurso_tipo or '-' }}</span></td>
+                <td><code>{{ r.recurso_id or '-' }}</code></td>
+                <td>{{ r.gateway_name or '-' }}</td>
+                <td class="desc-cell">{{ r.descricao or '-' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state-sm">
+    <span class="material-icons-round">history</span>
+    <p>Nenhum registro de auditoria encontrado.</p>
+</div>
+{% endif %}
+{% endblock %}

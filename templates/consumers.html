@@ -1,0 +1,317 @@
+{% extends "base.html" %}
+{% block title %}Consumers — APISIX Gateway Manager{% endblock %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-item">Segurança</span>
+<span class="breadcrumb-sep">/</span>
+<span class="breadcrumb-item active">Consumers & IDP</span>
+{% endblock %}
+
+{% block content %}
+<!-- Gateway Selector -->
+<div class="selector-bar">
+    <form method="GET" action="{{ url_for('consumers.index') }}" class="selector-form">
+        <div class="form-group-inline">
+            <label><span class="material-icons-round">dns</span> Gateway:</label>
+            <select name="gateway_id" class="form-select" onchange="this.form.submit()">
+                <option value="">— Selecione um gateway —</option>
+                {% for gw in gateways %}
+                <option value="{{ gw.id }}" {{ 'selected' if selected_gw and selected_gw.id == gw.id else '' }}>
+                    {{ gw.name }} ({{ gw.environment }})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
+</div>
+
+{% if error_msg %}
+<div class="alert alert-error">
+    <span class="material-icons-round">error</span>
+    <span>{{ error_msg }}</span>
+</div>
+{% endif %}
+
+{% if selected_gw %}
+<!-- Consumers Section -->
+<div class="section-header">
+    <h2><span class="material-icons-round">people</span> Consumers</h2>
+    <button class="btn btn-primary btn-sm" onclick="openCreateConsumerModal()">
+        <span class="material-icons-round">person_add</span> Novo Consumer
+    </button>
+</div>
+
+{% if consumers %}
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Username</th>
+                <th>Plugins</th>
+                <th>Descrição</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in consumers %}
+            <tr>
+                <td><strong>{{ c.username or 'N/A' }}</strong></td>
+                <td>
+                    {% if c.plugins %}
+                        {% for p in c.plugins.keys() %}
+                        <span class="plugin-tag">{{ p }}</span>
+                        {% endfor %}
+                    {% else %}
+                        <span class="text-muted">Nenhum</span>
+                    {% endif %}
+                </td>
+                <td>{{ c.desc or '-' }}</td>
+                <td>
+                    <div class="action-btns">
+                        <button class="btn-icon" onclick="viewConsumer('{{ c.username }}')" title="Detalhes">
+                            <span class="material-icons-round">visibility</span>
+                        </button>
+                        <button class="btn-icon" onclick="openIdpBindModal('{{ c.username }}')" title="Vincular IDP">
+                            <span class="material-icons-round">vpn_key</span>
+                        </button>
+                        <button class="btn-icon btn-icon-danger" onclick="deleteConsumer('{{ c.username }}')" title="Excluir">
+                            <span class="material-icons-round">delete</span>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state-sm">
+    <span class="material-icons-round">people</span>
+    <p>Nenhum consumer encontrado neste gateway.</p>
+</div>
+{% endif %}
+
+<!-- IDP Bindings Section -->
+<div class="section-header" style="margin-top: 2rem;">
+    <h2><span class="material-icons-round">vpn_key</span> Vínculos IDP</h2>
+</div>
+
+{% if idp_bindings %}
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Consumer</th>
+                <th>Provedor IDP</th>
+                <th>Client ID</th>
+                <th>Plugin</th>
+                <th>Status</th>
+                <th>Criado por</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for b in idp_bindings %}
+            <tr>
+                <td><strong>{{ b.consumer_username }}</strong></td>
+                <td>
+                    <span class="idp-badge idp-{{ b.idp_provider|lower|replace(' ','-') }}">
+                        {{ b.idp_provider }}
+                    </span>
+                </td>
+                <td><code>{{ b.idp_client_id or '-' }}</code></td>
+                <td><span class="plugin-tag">{{ b.plugin_name }}</span></td>
+                <td><span class="status-badge status-active">{{ b.status }}</span></td>
+                <td>{{ b.created_by or '-' }}</td>
+                <td>
+                    <button class="btn-icon btn-icon-danger" onclick="unbindIdp({{ b.id }})" title="Remover vínculo">
+                        <span class="material-icons-round">link_off</span>
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state-sm">
+    <span class="material-icons-round">vpn_key</span>
+    <p>Nenhum vínculo IDP configurado{{ ' para este gateway' if selected_gw else '' }}.</p>
+</div>
+{% endif %}
+
+{% else %}
+<div class="empty-state">
+    <span class="material-icons-round">people</span>
+    <h3>Selecione um Gateway</h3>
+    <p>Escolha uma instância acima para gerenciar consumers e vínculos IDP.</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const GW_ID = {{ selected_gw.id if selected_gw else 'null' }};
+
+function openCreateConsumerModal() {
+    if (!GW_ID) return;
+    const html = `
+        <div class="form-group">
+            <label>Configuração JSON *</label>
+            <textarea id="consumerJson" class="form-textarea code-input" rows="12" placeholder='{\n  "username": "my-consumer",\n  "desc": "Consumer description",\n  "plugins": {\n    "key-auth": {\n      "key": "my-api-key-123"\n    }\n  }\n}'></textarea>
+        </div>
+        <div class="form-actions">
+            <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+            <button class="btn btn-primary" onclick="submitConsumer()">
+                <span class="material-icons-round">person_add</span> Criar Consumer
+            </button>
+        </div>
+    `;
+    openModal('Novo Consumer', html);
+}
+
+function submitConsumer() {
+    const textarea = document.getElementById('consumerJson');
+    let config;
+    try { config = JSON.parse(textarea.value); }
+    catch(e) { showToast('error', 'JSON inválido: ' + e.message); return; }
+
+    fetch(`/consumers/create/${GW_ID}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config)
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            showToast('success', 'Consumer criado com sucesso!');
+            closeModal();
+            setTimeout(() => location.reload(), 1000);
+        } else { showToast('error', data.error || 'Erro ao criar consumer'); }
+    })
+    .catch(e => showToast('error', 'Erro de conexão'));
+}
+
+function viewConsumer(username) {
+    if (!GW_ID) return;
+    fetch(`/consumers/detail/${GW_ID}/${username}`)
+        .then(r => r.json())
+        .then(data => {
+            const json = JSON.stringify(data.data || data, null, 2);
+            const html = `<pre class="json-viewer">${json}</pre>`;
+            openModal(`Consumer: ${username}`, html);
+        });
+}
+
+function deleteConsumer(username) {
+    if (!confirm(`Excluir consumer "${username}"?`)) return;
+    fetch(`/consumers/delete/${GW_ID}/${username}`, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) {
+                showToast('success', `Consumer "${username}" removido!`);
+                setTimeout(() => location.reload(), 1000);
+            } else { showToast('error', data.error || 'Erro ao excluir'); }
+        });
+}
+
+function openIdpBindModal(consumerUsername) {
+    const html = `
+        <form id="idpBindForm">
+            <div class="form-group">
+                <label>Consumer</label>
+                <input type="text" value="${consumerUsername}" readonly class="form-input" id="bindConsumer">
+            </div>
+            <div class="form-group">
+                <label>Provedor IDP *</label>
+                <select class="form-select" id="bindProvider">
+                    <option value="Azure AD">Azure AD (Entra ID)</option>
+                    <option value="Keycloak">Keycloak</option>
+                    <option value="Okta">Okta</option>
+                    <option value="Auth0">Auth0</option>
+                    <option value="Google">Google Identity</option>
+                    <option value="Custom OIDC">Custom OIDC</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Client ID</label>
+                <input type="text" class="form-input" id="bindClientId" placeholder="ID do client no IDP">
+            </div>
+            <div class="form-group">
+                <label>Client Secret</label>
+                <input type="password" class="form-input" id="bindClientSecret" placeholder="Secret do client">
+            </div>
+            <div class="form-group">
+                <label>Discovery URL</label>
+                <input type="url" class="form-input" id="bindDiscovery" placeholder="https://.../.well-known/openid-configuration">
+            </div>
+            <div class="form-group">
+                <label>Issuer URL</label>
+                <input type="url" class="form-input" id="bindIssuer" placeholder="https://login.microsoftonline.com/{tenant}/v2.0">
+            </div>
+            <div class="form-group">
+                <label>Plugin de Autenticação</label>
+                <select class="form-select" id="bindPlugin">
+                    <option value="openid-connect">openid-connect (OIDC)</option>
+                    <option value="jwt-auth">jwt-auth</option>
+                    <option value="key-auth">key-auth</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="bindApply" checked> Aplicar plugin no consumer via APISIX Admin API
+                </label>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="submitIdpBind()">
+                    <span class="material-icons-round">vpn_key</span> Vincular IDP
+                </button>
+            </div>
+        </form>
+    `;
+    openModal('Vincular IDP Externo', html);
+}
+
+function submitIdpBind() {
+    const payload = {
+        gateway_id: GW_ID,
+        consumer_username: document.getElementById('bindConsumer').value,
+        idp_provider: document.getElementById('bindProvider').value,
+        idp_client_id: document.getElementById('bindClientId').value,
+        idp_client_secret: document.getElementById('bindClientSecret').value,
+        discovery_url: document.getElementById('bindDiscovery').value,
+        idp_issuer: document.getElementById('bindIssuer').value,
+        plugin_name: document.getElementById('bindPlugin').value,
+        apply_to_gateway: document.getElementById('bindApply').checked,
+    };
+
+    fetch('/consumers/idp/bind', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            showToast('success', 'IDP vinculado com sucesso!');
+            closeModal();
+            setTimeout(() => location.reload(), 1000);
+        } else { showToast('error', data.error || 'Erro ao vincular IDP'); }
+    })
+    .catch(e => showToast('error', 'Erro de conexão'));
+}
+
+function unbindIdp(bindingId) {
+    if (!confirm('Remover este vínculo IDP?')) return;
+    fetch(`/consumers/idp/unbind/${bindingId}`, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showToast('success', 'Vínculo removido!');
+                setTimeout(() => location.reload(), 1000);
+            } else { showToast('error', data.error || 'Erro ao remover'); }
+        });
+}
+</script>
+{% endblock %}

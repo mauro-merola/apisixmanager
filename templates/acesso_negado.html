@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acesso Negado — APISIX Gateway Manager</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #1a1a2e, #16213e);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #e0e0e0;
+        }
+        .container {
+            text-align: center;
+            padding: 3rem;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 24px;
+            backdrop-filter: blur(20px);
+            max-width: 500px;
+            animation: fadeIn 0.6s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .icon { font-size: 64px; color: #ef4444; margin-bottom: 1rem; }
+        h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; }
+        p { color: #94a3b8; line-height: 1.6; margin-bottom: 1.5rem; }
+        .email { color: #818cf8; font-weight: 500; }
+        .btn {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 12px 28px; border-radius: 12px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white; text-decoration: none;
+            font-weight: 600; transition: all 0.3s;
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(99,102,241,0.4); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <span class="material-icons-round icon">gpp_bad</span>
+        <h1>Acesso Negado</h1>
+        <p>{{ mensagem or 'Você não possui permissão para acessar esta página.' }}</p>
+        {% if user_email %}
+        <p>Usuário: <span class="email">{{ user_email }}</span></p>
+        {% endif %}
+        <a href="/login" class="btn">
+            <span class="material-icons-round">arrow_back</span>
+            Voltar ao Login
+        </a>
+    </div>
+</body>
+</html>

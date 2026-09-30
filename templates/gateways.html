@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block title %}Gateways — APISIX Gateway Manager{% endblock %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-item">Gateways</span>
+<span class="breadcrumb-sep">/</span>
+<span class="breadcrumb-item active">Instâncias</span>
+{% endblock %}
+
+{% block topbar_actions %}
+<button class="btn btn-primary btn-sm" onclick="openCreateGatewayModal()">
+    <span class="material-icons-round">add</span> Novo Gateway
+</button>
+{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <h2><span class="material-icons-round">dns</span> Instâncias de Gateway</h2>
+    <span class="badge-count">{{ gateways|length }} registradas</span>
+</div>
+
+{% if gateways %}
+<div class="gateway-grid">
+    {% for gw in gateways %}
+    <div class="gateway-card {{ 'gw-online' if gw.health_live == 'ONLINE' else 'gw-offline' }} {{ 'gw-inactive' if not gw.is_active else '' }}">
+        <div class="gw-card-header">
+            <div class="gw-status-dot {{ 'dot-online' if gw.health_live == 'ONLINE' else 'dot-offline' }}"></div>
+            <h3>{{ gw.name }}</h3>
+            <span class="env-badge env-{{ gw.environment|lower }}">{{ gw.environment }}</span>
+        </div>
+        <div class="gw-card-body">
+            <div class="gw-detail-row">
+                <span class="material-icons-round">link</span>
+                <span class="gw-url-text">{{ gw.admin_url }}</span>
+            </div>
+            {% if gw.description %}
+            <div class="gw-detail-row">
+                <span class="material-icons-round">notes</span>
+                <span>{{ gw.description }}</span>
+            </div>
+            {% endif %}
+            <div class="gw-detail-row">
+                <span class="material-icons-round">schedule</span>
+                <span>Último check: {{ gw.last_health_check[:19] if gw.last_health_check else 'Nunca' }}</span>
+            </div>
+        </div>
+        <div class="gw-card-actions">
+            {% if gw.is_active %}
+            <button class="btn btn-ghost btn-sm" onclick="openEditGatewayModal({{ gw.id }}, '{{ gw.name }}', '{{ gw.admin_url }}', '{{ gw.admin_key }}', '{{ gw.environment }}', '{{ gw.description or '' }}')" title="Editar">
+                <span class="material-icons-round">edit</span>
+            </button>
+            <button class="btn btn-ghost btn-sm" onclick="checkGatewayHealth({{ gw.id }})" title="Health Check">
+                <span class="material-icons-round">monitor_heart</span>
+            </button>
+            <form method="POST" action="{{ url_for('gateways.deletar', gw_id=gw.id) }}" style="display:inline" onsubmit="return confirm('Desativar gateway {{ gw.name }}?')">
+                <button type="submit" class="btn btn-danger-ghost btn-sm" title="Desativar">
+                    <span class="material-icons-round">power_settings_new</span>
+                </button>
+            </form>
+            {% else %}
+            <form method="POST" action="{{ url_for('gateways.reativar', gw_id=gw.id) }}" style="display:inline">
+                <button type="submit" class="btn btn-success-ghost btn-sm" title="Reativar">
+                    <span class="material-icons-round">power</span> Reativar
+                </button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <span class="material-icons-round">dns</span>
+    <h3>Nenhum gateway registrado</h3>
+    <p>Adicione sua primeira instância APISIX para começar a gerenciar suas APIs.</p>
+    <button class="btn btn-primary" onclick="openCreateGatewayModal()">
+        <span class="material-icons-round">add</span> Adicionar Gateway
+    </button>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function openCreateGatewayModal() {
+    const html = `
+        <form method="POST" action="{{ url_for('gateways.criar') }}" id="createGwForm">
+            <div class="form-group">
+                <label>Nome da Instância *</label>
+                <input type="text" name="name" required placeholder="Ex: APISIX Produção" class="form-input">
+            </div>
+            <div class="form-group">
+                <label>URL da Admin API *</label>
+                <input type="url" name="admin_url" required placeholder="http://apisix-host:9180" class="form-input">
+            </div>
+            <div class="form-group">
+                <label>API Key (X-API-KEY) *</label>
+                <input type="password" name="admin_key" required placeholder="edd1c9f034335f136f87ad84b625c8f1" class="form-input">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Ambiente</label>
+                    <select name="environment" class="form-select">
+                        <option value="DEV">DEV</option>
+                        <option value="HML">HML</option>
+                        <option value="PRD">PRD</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Descrição</label>
+                <textarea name="description" class="form-textarea" placeholder="Descrição opcional da instância"></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+                <button type="submit" class="btn btn-primary">
+                    <span class="material-icons-round">add</span> Cadastrar
+                </button>
+            </div>
+        </form>
+    `;
+    openModal('Novo Gateway APISIX', html);
+}
+
+function openEditGatewayModal(id, name, url, key, env, desc) {
+    const html = `
+        <form method="POST" action="/gateways/${id}/editar" id="editGwForm">
+            <div class="form-group">
+                <label>Nome da Instância</label>
+                <input type="text" name="name" value="${name}" class="form-input">
+            </div>
+            <div class="form-group">
+                <label>URL da Admin API</label>
+                <input type="url" name="admin_url" value="${url}" class="form-input">
+            </div>
+            <div class="form-group">
+                <label>API Key (X-API-KEY)</label>
+                <input type="password" name="admin_key" value="${key}" class="form-input">
+            </div>
+            <div class="form-group">
+                <label>Ambiente</label>
+                <select name="environment" class="form-select">
+                    <option value="DEV" ${env==='DEV'?'selected':''}>DEV</option>
+                    <option value="HML" ${env==='HML'?'selected':''}>HML</option>
+                    <option value="PRD" ${env==='PRD'?'selected':''}>PRD</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Descrição</label>
+                <textarea name="description" class="form-textarea">${desc}</textarea>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+                <button type="submit" class="btn btn-primary">
+                    <span class="material-icons-round">save</span> Salvar
+                </button>
+            </div>
+        </form>
+    `;
+    openModal('Editar Gateway', html);
+}
+
+function checkGatewayHealth(gwId) {
+    fetch(`/gateways/${gwId}/health`)
+        .then(r => r.json())
+        .then(data => {
+            showToast(
+                data.status === 'ONLINE' ? 'success' : 'error',
+                `${data.name}: ${data.status}`
+            );
+            setTimeout(() => location.reload(), 1500);
+        })
+        .catch(() => showToast('error', 'Erro ao verificar saúde do gateway'));
+}
+</script>
+{% endblock %}

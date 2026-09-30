@@ -1,0 +1,4 @@
+2026-09-29 21:10:57,040 [INFO] [root]: 🔍 [OBSERVABILIDADE] Arquivo de log ativado em: C:\Projetos\APISixM\coleta_debug.log
+2026-09-29 21:10:57,243 [INFO] [waitress]: Serving on http://0.0.0.0:8080
+2026-09-29 21:13:55,709 [INFO] [root]: 🔍 [OBSERVABILIDADE] Arquivo de log ativado em: C:\Projetos\APISixM\coleta_debug.log
+2026-09-29 21:13:55,792 [INFO] [waitress]: Serving on http://0.0.0.0:8080

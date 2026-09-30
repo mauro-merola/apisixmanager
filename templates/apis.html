@@ -1,0 +1,372 @@
+{% extends "base.html" %}
+{% block title %}APIs — APISIX Gateway Manager{% endblock %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-item">APIs</span>
+<span class="breadcrumb-sep">/</span>
+<span class="breadcrumb-item active">{{ tab|capitalize }}</span>
+{% endblock %}
+
+{% block content %}
+<!-- Gateway Selector -->
+<div class="selector-bar">
+    <form method="GET" action="{{ url_for('api_admin.index') }}" class="selector-form">
+        <div class="form-group-inline">
+            <label><span class="material-icons-round">dns</span> Gateway:</label>
+            <select name="gateway_id" class="form-select" onchange="this.form.submit()">
+                <option value="">— Selecione um gateway —</option>
+                {% for gw in gateways %}
+                <option value="{{ gw.id }}" {{ 'selected' if selected_gw and selected_gw.id == gw.id else '' }}>
+                    {{ gw.name }} ({{ gw.environment }})
+                </option>
+                {% endfor %}
+            </select>
+            <input type="hidden" name="tab" value="{{ tab }}">
+        </div>
+    </form>
+</div>
+
+{% if error_msg %}
+<div class="alert alert-error">
+    <span class="material-icons-round">error</span>
+    <span>{{ error_msg }}</span>
+</div>
+{% endif %}
+
+{% if selected_gw %}
+<!-- Tabs -->
+<div class="tabs">
+    <a href="{{ url_for('api_admin.index', gateway_id=selected_gw.id, tab='routes') }}" class="tab {{ 'active' if tab == 'routes' else '' }}">
+        <span class="material-icons-round">alt_route</span> Routes <span class="tab-count">{{ routes|length }}</span>
+    </a>
+    <a href="{{ url_for('api_admin.index', gateway_id=selected_gw.id, tab='services') }}" class="tab {{ 'active' if tab == 'services' else '' }}">
+        <span class="material-icons-round">miscellaneous_services</span> Services <span class="tab-count">{{ services|length }}</span>
+    </a>
+    <a href="{{ url_for('api_admin.index', gateway_id=selected_gw.id, tab='upstreams') }}" class="tab {{ 'active' if tab == 'upstreams' else '' }}">
+        <span class="material-icons-round">cloud_upload</span> Upstreams <span class="tab-count">{{ upstreams|length }}</span>
+    </a>
+    <a href="{{ url_for('api_admin.index', gateway_id=selected_gw.id, tab='plugins') }}" class="tab {{ 'active' if tab == 'plugins' else '' }}">
+        <span class="material-icons-round">extension</span> Plugins <span class="tab-count">{{ plugins|length }}</span>
+    </a>
+</div>
+
+<!-- Routes Tab -->
+{% if tab == 'routes' %}
+<div class="section-header">
+    <h2><span class="material-icons-round">alt_route</span> Routes</h2>
+    <button class="btn btn-primary btn-sm" onclick="openResourceModal('route')">
+        <span class="material-icons-round">add</span> Nova Route
+    </button>
+</div>
+
+{% if routes %}
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nome</th>
+                <th>URI</th>
+                <th>Métodos</th>
+                <th>Service ID</th>
+                <th>Plugins</th>
+                <th>Status</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for route in routes %}
+            <tr>
+                <td><code class="resource-id">{{ route.id or 'N/A' }}</code></td>
+                <td>{{ route.name or '-' }}</td>
+                <td><code>{{ route.uri or route.uris|join(', ') if route.uris else '-' }}</code></td>
+                <td>
+                    {% if route.methods %}
+                        {% for m in route.methods %}<span class="method-badge method-{{ m|lower }}">{{ m }}</span>{% endfor %}
+                    {% else %}<span class="method-badge">ALL</span>{% endif %}
+                </td>
+                <td>{{ route.service_id or '-' }}</td>
+                <td>{{ (route.plugins or {}).keys()|list|length }} plugin(s)</td>
+                <td>
+                    <span class="status-badge {{ 'status-active' if route.status == 1 else 'status-inactive' }}">
+                        {{ 'Ativo' if route.status == 1 else 'Inativo' }}
+                    </span>
+                </td>
+                <td>
+                    <div class="action-btns">
+                        <button class="btn-icon" onclick="viewResource('route', '{{ route.id }}')" title="Detalhes">
+                            <span class="material-icons-round">visibility</span>
+                        </button>
+                        <button class="btn-icon btn-icon-danger" onclick="deleteResource('route', '{{ route.id }}')" title="Excluir">
+                            <span class="material-icons-round">delete</span>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state-sm">
+    <span class="material-icons-round">alt_route</span>
+    <p>Nenhuma route encontrada neste gateway.</p>
+</div>
+{% endif %}
+{% endif %}
+
+<!-- Services Tab -->
+{% if tab == 'services' %}
+<div class="section-header">
+    <h2><span class="material-icons-round">miscellaneous_services</span> Services</h2>
+    <button class="btn btn-primary btn-sm" onclick="openResourceModal('service')">
+        <span class="material-icons-round">add</span> Novo Service
+    </button>
+</div>
+
+{% if services %}
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nome</th>
+                <th>Upstream ID</th>
+                <th>Plugins</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for svc in services %}
+            <tr>
+                <td><code class="resource-id">{{ svc.id or 'N/A' }}</code></td>
+                <td>{{ svc.name or '-' }}</td>
+                <td>{{ svc.upstream_id or '-' }}</td>
+                <td>{{ (svc.plugins or {}).keys()|list|length }} plugin(s)</td>
+                <td>
+                    <div class="action-btns">
+                        <button class="btn-icon" onclick="viewResource('service', '{{ svc.id }}')" title="Detalhes">
+                            <span class="material-icons-round">visibility</span>
+                        </button>
+                        <button class="btn-icon btn-icon-danger" onclick="deleteResource('service', '{{ svc.id }}')" title="Excluir">
+                            <span class="material-icons-round">delete</span>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state-sm">
+    <span class="material-icons-round">miscellaneous_services</span>
+    <p>Nenhum service encontrado neste gateway.</p>
+</div>
+{% endif %}
+{% endif %}
+
+<!-- Upstreams Tab -->
+{% if tab == 'upstreams' %}
+<div class="section-header">
+    <h2><span class="material-icons-round">cloud_upload</span> Upstreams</h2>
+    <button class="btn btn-primary btn-sm" onclick="openResourceModal('upstream')">
+        <span class="material-icons-round">add</span> Novo Upstream
+    </button>
+</div>
+
+{% if upstreams %}
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nome</th>
+                <th>Tipo</th>
+                <th>Nodes</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for up in upstreams %}
+            <tr>
+                <td><code class="resource-id">{{ up.id or 'N/A' }}</code></td>
+                <td>{{ up.name or '-' }}</td>
+                <td><span class="type-badge">{{ up.type or 'roundrobin' }}</span></td>
+                <td>
+                    {% if up.nodes %}
+                        {% if up.nodes is mapping %}
+                            {% for node, weight in up.nodes.items() %}
+                                <code>{{ node }}</code> (w:{{ weight }})<br>
+                            {% endfor %}
+                        {% elif up.nodes is iterable %}
+                            {% for node in up.nodes %}
+                                <code>{{ node.host }}:{{ node.port }}</code> (w:{{ node.weight }})<br>
+                            {% endfor %}
+                        {% endif %}
+                    {% else %}-{% endif %}
+                </td>
+                <td>
+                    <div class="action-btns">
+                        <button class="btn-icon" onclick="viewResource('upstream', '{{ up.id }}')" title="Detalhes">
+                            <span class="material-icons-round">visibility</span>
+                        </button>
+                        <button class="btn-icon btn-icon-danger" onclick="deleteResource('upstream', '{{ up.id }}')" title="Excluir">
+                            <span class="material-icons-round">delete</span>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state-sm">
+    <span class="material-icons-round">cloud_upload</span>
+    <p>Nenhum upstream encontrado neste gateway.</p>
+</div>
+{% endif %}
+{% endif %}
+
+<!-- Plugins Tab -->
+{% if tab == 'plugins' %}
+<div class="section-header">
+    <h2><span class="material-icons-round">extension</span> Plugins Disponíveis</h2>
+</div>
+
+{% if plugins %}
+<div class="plugins-grid">
+    {% for plugin in plugins %}
+    <div class="plugin-card" onclick="viewPluginSchema('{{ plugin }}')">
+        <span class="material-icons-round">extension</span>
+        <span class="plugin-name">{{ plugin }}</span>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state-sm">
+    <span class="material-icons-round">extension</span>
+    <p>Nenhum plugin disponível ou erro ao listar.</p>
+</div>
+{% endif %}
+{% endif %}
+
+{% else %}
+<!-- No gateway selected -->
+<div class="empty-state">
+    <span class="material-icons-round">dns</span>
+    <h3>Selecione um Gateway</h3>
+    <p>Escolha uma instância de gateway acima para visualizar e gerenciar seus recursos.</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const GW_ID = {{ selected_gw.id if selected_gw else 'null' }};
+
+function openResourceModal(type) {
+    if (!GW_ID) { showToast('error', 'Selecione um gateway primeiro.'); return; }
+    const labels = { route: 'Route', service: 'Service', upstream: 'Upstream' };
+    const html = `
+        <div class="form-group">
+            <label>Configuração JSON *</label>
+            <textarea id="resourceJson" class="form-textarea code-input" rows="15" placeholder='${getPlaceholder(type)}'></textarea>
+        </div>
+        <div class="form-actions">
+            <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+            <button class="btn btn-primary" onclick="submitResource('${type}')">
+                <span class="material-icons-round">save</span> Criar ${labels[type]}
+            </button>
+        </div>
+    `;
+    openModal(`Nova ${labels[type]}`, html);
+}
+
+function getPlaceholder(type) {
+    const examples = {
+        route: '{\n  "id": "my-route-1",\n  "uri": "/api/v1/*",\n  "name": "My API Route",\n  "methods": ["GET", "POST"],\n  "upstream": {\n    "type": "roundrobin",\n    "nodes": {"httpbin.org:80": 1}\n  }\n}',
+        service: '{\n  "id": "my-service-1",\n  "name": "My Service",\n  "upstream": {\n    "type": "roundrobin",\n    "nodes": {"backend:8080": 1}\n  }\n}',
+        upstream: '{\n  "id": "my-upstream-1",\n  "name": "My Upstream",\n  "type": "roundrobin",\n  "nodes": {"backend-host:8080": 1}\n}'
+    };
+    return examples[type] || '{}';
+}
+
+function submitResource(type) {
+    const textarea = document.getElementById('resourceJson');
+    let config;
+    try { config = JSON.parse(textarea.value); }
+    catch(e) { showToast('error', 'JSON inválido: ' + e.message); return; }
+
+    fetch(`/apis/${type}/${GW_ID}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config)
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            showToast('success', `${type} criado com sucesso!`);
+            closeModal();
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast('error', data.error || 'Erro ao criar recurso');
+        }
+    })
+    .catch(e => showToast('error', 'Erro de conexão'));
+}
+
+function viewResource(type, id) {
+    if (!GW_ID) return;
+    fetch(`/apis/${type}/${GW_ID}/${id}`)
+        .then(r => r.json())
+        .then(data => {
+            const json = JSON.stringify(data.data || data, null, 2);
+            const html = `<pre class="json-viewer">${syntaxHighlight(json)}</pre>`;
+            openModal(`${type.charAt(0).toUpperCase() + type.slice(1)}: ${id}`, html);
+        })
+        .catch(e => showToast('error', 'Erro ao carregar detalhes'));
+}
+
+function deleteResource(type, id) {
+    if (!GW_ID) return;
+    if (!confirm(`Tem certeza que deseja excluir ${type} "${id}"?`)) return;
+
+    fetch(`/apis/${type}/${GW_ID}/${id}`, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) {
+                showToast('success', `${type} "${id}" removido!`);
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showToast('error', data.error || 'Erro ao excluir');
+            }
+        })
+        .catch(e => showToast('error', 'Erro de conexão'));
+}
+
+function viewPluginSchema(name) {
+    if (!GW_ID) return;
+    fetch(`/apis/plugin-schema/${GW_ID}/${name}`)
+        .then(r => r.json())
+        .then(data => {
+            const json = JSON.stringify(data.data || data, null, 2);
+            const html = `<pre class="json-viewer">${syntaxHighlight(json)}</pre>`;
+            openModal(`Plugin: ${name}`, html);
+        })
+        .catch(e => showToast('error', 'Erro ao carregar schema'));
+}
+
+function syntaxHighlight(json) {
+    json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return json.replace(/("(\\u[\da-fA-F]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function(match) {
+        let cls = 'json-number';
+        if (/^"/.test(match)) { cls = /:$/.test(match) ? 'json-key' : 'json-string'; }
+        else if (/true|false/.test(match)) { cls = 'json-boolean'; }
+        else if (/null/.test(match)) { cls = 'json-null'; }
+        return '<span class="' + cls + '">' + match + '</span>';
+    });
+}
+</script>
+{% endblock %}

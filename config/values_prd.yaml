@@ -1,0 +1,69 @@
+
+# ===============================================================================
+# HELM VALUES - AMBIENTE DE PRODUÇÃO (PRD)
+# Aplicação : apisix-gateway-manager
+# Versão    : 1.0.0
+# ===============================================================================
+
+appFramework: python
+
+namespace: corp-midd
+namespaceocp: corp-midd
+containerPort: 8080
+
+# Auto Scaler (HPA)
+hpa:
+  enabled: true
+  enableMemory: true
+  enableCpu: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetMemoryUtilizationPercentage: 80
+  targetCpuUtilizationPercentage: 80
+
+# Limites de Recursos da Pod
+resources:
+  cpu: 500m
+  memory: 1Gi
+
+# Roteamento e Ingress
+ingress:
+  enabled: true
+  contextURL: /apisix-gateway-manager
+  host: ""
+
+env:
+  - name: GUNICORN_CMD_ARGS
+    value: "--worker-tmp-dir /tmp --bind 0.0.0.0:8080"
+  - name: TMPDIR
+    value: "/tmp"
+  - name: HOME
+    value: "/tmp"
+
+# Configurações do Deployment no Kubernetes (ConfigMap)
+configmap:
+  LOGGER_LEVEL: "WARNING"
+  FLASK_ENV: "production"
+  FLASK_APP: "apisix-gateway-manager"
+  FLASK_HOST: "0.0.0.0"
+  FLASK_PORT: "8080"
+  REQUESTS_CA_BUNDLE: "api/certificates/corp-ca.pem"
+
+  # APISIX Gateway
+  APISIX_DEFAULT_ADMIN_URL: "http://apisix-admin.corp-midd.svc:9180"
+  APISIX_DEFAULT_INSTANCE_NAME: "APISIX PRD"
+  APISIX_ENVIRONMENTS: "DEV,HML,PRD"
+  APISIX_CACHE_TTL_SECONDS: "7200"
+
+  # OIDC / SSO (Azure AD)
+  OIDC_CLIENT_ID: "INT-MIDD-APISIX-MANAGER-PRD"
+  OIDC_ISSUER_URL: "https://login.microsoftonline.com/{TENANT_ID}/v2.0"
+  DATABASE_NAME: "database.db"
+
+# Integração com Cofre de Senhas Porto Tech Store (Vault)
+enable_secrets: true
+secrets:
+  FLASK_VAULT: "uuid-flask-vault-prd"
+  OIDC_CLIENT_SECRET: "uuid-oidc-secret-prd"
+  APISIX_DEFAULT_ADMIN_KEY: "uuid-admin-key-prd"
+  GIT_ID_VAULT: "uuid-git-vault-prd"

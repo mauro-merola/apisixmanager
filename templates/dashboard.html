@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — APISIX Gateway Manager{% endblock %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-item active">Dashboard</span>
+{% endblock %}
+
+{% block content %}
+<!-- KPI Cards -->
+<div class="kpi-grid">
+    <div class="kpi-card kpi-primary">
+        <div class="kpi-icon"><span class="material-icons-round">dns</span></div>
+        <div class="kpi-data">
+            <span class="kpi-value" data-count="{{ total_gateways }}">0</span>
+            <span class="kpi-label">Gateways</span>
+        </div>
+        <div class="kpi-badge">{{ gateways_online }} online</div>
+    </div>
+    <div class="kpi-card kpi-blue">
+        <div class="kpi-icon"><span class="material-icons-round">alt_route</span></div>
+        <div class="kpi-data">
+            <span class="kpi-value" data-count="{{ totais.routes }}">0</span>
+            <span class="kpi-label">Routes</span>
+        </div>
+    </div>
+    <div class="kpi-card kpi-purple">
+        <div class="kpi-icon"><span class="material-icons-round">miscellaneous_services</span></div>
+        <div class="kpi-data">
+            <span class="kpi-value" data-count="{{ totais.services }}">0</span>
+            <span class="kpi-label">Services</span>
+        </div>
+    </div>
+    <div class="kpi-card kpi-teal">
+        <div class="kpi-icon"><span class="material-icons-round">cloud_upload</span></div>
+        <div class="kpi-data">
+            <span class="kpi-value" data-count="{{ totais.upstreams }}">0</span>
+            <span class="kpi-label">Upstreams</span>
+        </div>
+    </div>
+    <div class="kpi-card kpi-amber">
+        <div class="kpi-icon"><span class="material-icons-round">people</span></div>
+        <div class="kpi-data">
+            <span class="kpi-value" data-count="{{ totais.consumers }}">0</span>
+            <span class="kpi-label">Consumers</span>
+        </div>
+    </div>
+    <div class="kpi-card kpi-green">
+        <div class="kpi-icon"><span class="material-icons-round">verified_user</span></div>
+        <div class="kpi-data">
+            <span class="kpi-value" data-count="{{ totais.ssl }}">0</span>
+            <span class="kpi-label">SSL Certs</span>
+        </div>
+    </div>
+</div>
+
+<!-- Gateway Status Cards -->
+<div class="section-header">
+    <h2><span class="material-icons-round">dns</span> Status das Instâncias</h2>
+    <a href="{{ url_for('gateways.listar') }}" class="btn btn-ghost btn-sm">
+        <span class="material-icons-round">settings</span> Gerenciar
+    </a>
+</div>
+
+{% if gateway_stats %}
+<div class="gateway-grid">
+    {% for gs in gateway_stats %}
+    <div class="gateway-card {{ 'gw-online' if gs.online else 'gw-offline' }}">
+        <div class="gw-card-header">
+            <div class="gw-status-dot {{ 'dot-online' if gs.online else 'dot-offline' }}"></div>
+            <h3>{{ gs.gateway.name }}</h3>
+            <span class="env-badge env-{{ gs.gateway.environment|lower }}">{{ gs.gateway.environment }}</span>
+        </div>
+        <div class="gw-card-body">
+            <div class="gw-stat"><span class="material-icons-round">alt_route</span><span>{{ gs.routes }} routes</span></div>
+            <div class="gw-stat"><span class="material-icons-round">miscellaneous_services</span><span>{{ gs.services }} services</span></div>
+            <div class="gw-stat"><span class="material-icons-round">cloud_upload</span><span>{{ gs.upstreams }} upstreams</span></div>
+            <div class="gw-stat"><span class="material-icons-round">people</span><span>{{ gs.consumers }} consumers</span></div>
+        </div>
+        <div class="gw-card-footer">
+            <span class="gw-url">{{ gs.gateway.admin_url }}</span>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <span class="material-icons-round">dns</span>
+    <h3>Nenhum gateway registrado</h3>
+    <p>Adicione sua primeira instância APISIX para começar.</p>
+    <a href="{{ url_for('gateways.listar') }}" class="btn btn-primary">
+        <span class="material-icons-round">add</span> Adicionar Gateway
+    </a>
+</div>
+{% endif %}
+
+<!-- Recent Audit -->
+{% if recent_audit %}
+<div class="section-header" style="margin-top: 2rem;">
+    <h2><span class="material-icons-round">history</span> Atividade Recente</h2>
+    <a href="{{ url_for('dash.audit_log') }}" class="btn btn-ghost btn-sm">Ver tudo</a>
+</div>
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Quando</th>
+                <th>Usuário</th>
+                <th>Ação</th>
+                <th>Recurso</th>
+                <th>Gateway</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in recent_audit %}
+            <tr>
+                <td><span class="timestamp">{{ r.timestamp[:19] if r.timestamp else 'N/A' }}</span></td>
+                <td>{{ r.usuario_email or 'Sistema' }}</td>
+                <td><span class="action-badge action-{{ r.acao|lower|replace('_','-') if r.acao else 'info' }}">{{ r.acao or 'N/A' }}</span></td>
+                <td>{{ r.recurso_tipo or '' }} {{ r.recurso_id or '' }}</td>
+                <td>{{ r.gateway_name or '-' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // Animate KPI counters
+    document.querySelectorAll('.kpi-value[data-count]').forEach(el => {
+        const target = parseInt(el.dataset.count) || 0;
+        if (target === 0) { el.textContent = '0'; return; }
+        let current = 0;
+        const step = Math.max(1, Math.ceil(target / 40));
+        const interval = setInterval(() => {
+            current += step;
+            if (current >= target) { current = target; clearInterval(interval); }
+            el.textContent = current;
+        }, 30);
+    });
+});
+</script>
+{% endblock %}

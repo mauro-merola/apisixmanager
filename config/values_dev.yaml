@@ -1,0 +1,63 @@
+
+# ===============================================================================
+# HELM VALUES - AMBIENTE DE DESENVOLVIMENTO (DEV)
+# Aplicação : apisix-gateway-manager
+# Versão    : 1.0.0
+# ===============================================================================
+
+appFramework: python
+hpa:
+  enabled: true
+  enableMemory: false
+  enableCpu: true
+  minReplicas: 1
+  maxReplicas: 3
+  targetMemoryUtilizationPercentage: 85
+  targetCpuUtilizationPercentage: 85
+
+
+namespace: corp-midd
+namespaceocp: corp-midd
+containerPort: 8080
+
+resources:
+  cpu: 200m
+  memory: 500Mi
+
+
+ingress:
+  enabled: true
+  contextURL: /apisix-gateway-manager
+  host: ""
+
+
+
+# Habilitar/desabilitar o recurso de obter as senhas do Cofre de Senhas da Porto Tech Store
+enable_secrets: true
+secrets:
+  # EXEMPLO_DB_PASSWORD="pegue-o-UUID-de-Segredo-cadastrado-no-cofre-da-Tech-Store"
+
+configmap:
+  # ATENÇÃO!!! NÃO ALTERAR ESTAS URLs - usadas para obter os tokens de autenticacao
+  JKS_URL: "https://sso-interno.authcorp.dev.awsporto/auth/realms/addev/protocol/openid-connect/certs"
+  TOKEN_URL: "https://sso-interno.authcorp.dev.awsporto/auth/realms/addev/protocol/openid-connect/token"
+  # ATENÇÃO!!! NÃO ALTERAR ESTAS URLs - usadas para obter os tokens de autenticacao
+
+
+  # Biblioteca 'logger' - definir o nível de detalhe nos logs
+  LOGGER_LEVEL: "DEBUG"
+
+  # Biblioteca 'flask' - configurar a aplicação
+  FLASK_APP: apisix-gateway-manager
+  FLASK_ENV: "development"
+  FLASK_HOST: "0.0.0.0"
+  FLASK_PORT: "8080"
+  FLASK_DEBUG: "False"
+
+  # APISIX Gateway
+  APISIX_DEFAULT_ADMIN_URL: "http://apisix-admin.corp-midd.svc:9180"
+  APISIX_DEFAULT_INSTANCE_NAME: "APISIX DEV"
+  APISIX_ENVIRONMENTS: "DEV"
+
+  # Banco de dados
+  DATABASE_NAME: "database.db"
